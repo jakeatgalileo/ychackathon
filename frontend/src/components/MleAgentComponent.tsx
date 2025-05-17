@@ -29,7 +29,7 @@ function LoadingSpinner({ className = "h-5 w-5", textColor = "text-white" }: { c
           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
         ></path>
       </svg>
-      <span className={textColor}>Simulating download...</span>
+      <span className={textColor}>Downloading...</span>
     </div>
   );
 }
@@ -59,19 +59,65 @@ type DatasetResult = {
   previews: DatasetPreview[];
 };
 
+// LLM Analysis result type
+type LlmAnalysis = {
+  summary: string;
+  recommendations: string[];
+  tools_used: {
+    name: string;
+    description: string;
+    examples: string[];
+  }[];
+};
+
 export function MleAgentComponent() {
   const [url, setUrl] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [datasetResult, setDatasetResult] = useState<DatasetResult | null>(null);
+  const [llmAnalysis, setLlmAnalysis] = useState<LlmAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isDataset, setIsDataset] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // Function to check if a URL is a Kaggle dataset or competition URL
   const isKaggleDatasetUrl = (url: string): boolean => {
     // Match both dataset and competition URLs
     return /kaggle\.com\/(?:(?:datasets|competitions)\/)?([^\/]+)\/([^\/]+)/i.test(url);
+  };
+
+  const analyzeDatasetWithLLM = async (dataset: DatasetResult) => {
+    setIsAnalyzing(true);
+    setLlmAnalysis(null);
+    
+    try {
+      const response = await fetch('/api/analyze-dataset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          datasetUrl: dataset.url,
+          datasetName: dataset.name,
+          owner: dataset.owner,
+          fileData: dataset.previews
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to analyze dataset with LLM');
+      }
+      
+      setLlmAnalysis(data.analysis);
+      
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to analyze dataset with LLM");
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -80,6 +126,7 @@ export function MleAgentComponent() {
     setIsProcessing(true);
     setAnalysisResult(null);
     setDatasetResult(null);
+    setLlmAnalysis(null);
     setError(null);
     setDownloadProgress(0);
     
@@ -116,6 +163,11 @@ export function MleAgentComponent() {
         }
         
         setDatasetResult(data.dataset);
+        
+        // Automatically analyze the dataset with LLM after downloading
+        if (data.dataset) {
+          await analyzeDatasetWithLLM(data.dataset);
+        }
       } else {
         // Process as regular URL for analysis
         const response = await fetch('/api/analyze', {
@@ -211,6 +263,46 @@ export function MleAgentComponent() {
               </div>
             )}
             
+            {/* Display LLM analysis */}
+            {llmAnalysis && (
+              <div className="bg-primary/10 p-4 rounded-md border border-primary/30 mb-6">
+                <h3 className="font-medium text-lg mb-2">LLM Analysis</h3>
+                <div className="space-y-3">
+                  <p className="text-sm">{llmAnalysis.summary}</p>
+                  
+                  {llmAnalysis.recommendations.length > 0 && (
+                    <div>
+                      <h4 className="font-medium mb-1">Recommendations:</h4>
+                      <ul className="text-sm list-disc pl-5 space-y-1">
+                        {llmAnalysis.recommendations.map((rec, i) => (
+                          <li key={i}>{rec}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {llmAnalysis.tools_used.length > 0 && (
+                    <div>
+                      <h4 className="font-medium mb-1">Tools Used by MCP Server:</h4>
+                      <div className="grid gap-2 mt-2">
+                        {llmAnalysis.tools_used.map((tool, i) => (
+                          <div key={i} className="bg-muted p-2 rounded border border-border">
+                            <div className="font-medium">{tool.name}</div>
+                            <div className="text-xs text-muted-foreground mt-1">{tool.description}</div>
+                            {tool.examples.length > 0 && (
+                              <div className="text-xs mt-1">
+                                <span className="opacity-70">Examples:</span> {tool.examples.join(", ")}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            
             {/* Display dataset preview */}
             {datasetResult && (
               <div className="bg-muted/50 p-4 rounded-md border border-border">
@@ -232,7 +324,7 @@ export function MleAgentComponent() {
                   />
                 ))}
                 
-                <div className="mt-4 flex justify-end">
+                <div className="mt-4 flex justify-between items-center">
                   <a 
                     href={datasetResult.url} 
                     target="_blank" 
@@ -241,6 +333,42 @@ export function MleAgentComponent() {
                   >
                     View full dataset on Kaggle →
                   </a>
+                  
+                  {!llmAnalysis && !isAnalyzing && (
+                    <Button
+                      onClick={() => analyzeDatasetWithLLM(datasetResult)}
+                      size="sm"
+                      variant="outline"
+                    >
+                      Analyze with LLM
+                    </Button>
+                  )}
+                  
+                  {isAnalyzing && (
+                    <div className="text-sm text-muted-foreground flex items-center">
+                      <svg 
+                        className="animate-spin h-4 w-4 mr-2" 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        fill="none" 
+                        viewBox="0 0 24 24"
+                      >
+                        <circle 
+                          className="opacity-25" 
+                          cx="12" 
+                          cy="12" 
+                          r="10" 
+                          stroke="currentColor" 
+                          strokeWidth="4"
+                        ></circle>
+                        <path 
+                          className="opacity-75" 
+                          fill="currentColor" 
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Analyzing with LLM...
+                    </div>
+                  )}
                 </div>
               </div>
             )}
