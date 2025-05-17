@@ -1,0 +1,13 @@
+[tool.poetry]
+name = "ychackathon"
+version = "0.1.0"
+description = "A project for text classification using Huggingface/Transformers"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+transformers = "^4.9.2"
+datasets = "^1.11.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
