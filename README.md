@@ -1,5 +1,17 @@
 # ychackathon
 
-## Secrets Management
+# frontend
 
-Secrets should be stored in the `.env` file. The `sample.env` file is the template for storing secrets. One of the secrets is the Anthropic LLM API key.
+```
+npm install
+npm run dev
+```
+
+# mcp
+
+```
+python3 -m venv venv
+source venv/bin/activate
+
+python server.py
+```
