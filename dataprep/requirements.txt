@@ -1,3 +1,8 @@
 pyarrow
+datasets
 pandas
 scikit-learn
+anthropic
+python-dotenv
+"mcp[cli]"
+httpx
