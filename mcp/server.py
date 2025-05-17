@@ -1,24 +1,30 @@
 from mcp.server.fastmcp import FastMCP
 import sys
 
-mcp = FastMCP("Demo")
+# 1️⃣  Instantiate the server
+mcp = FastMCP("Demo", version="0.0.1")
 
+# 2️⃣  Register a tool
 @mcp.tool()
 def add(a: int, b: int) -> int:
     """Add two numbers"""
     return a + b
 
-# Add a dynamic greeting resource
+# 3️⃣  Register a resource
 @mcp.resource("greeting://{name}")
 def get_greeting(name: str) -> str:
     """Get a personalized greeting"""
     return f"Hello, {name}!"
 
+# 4️⃣  Entrypoint: choose transport from CLI flag
 if __name__ == "__main__":
-    mode = (sys.argv[1] if len(sys.argv) > 1 else "stdio").lower()
+    mode = sys.argv[1].lower() if len(sys.argv) > 1 else "stdio"
+
     if mode == "http":
         port = int(sys.argv[2]) if len(sys.argv) > 2 else 8000
-        mcp.run(transport="http", port=port)
+        # tiny built-in ASGI server; no FastAPI/uvicorn needed
+        mcp.run(transport="http", host="0.0.0.0", port=port)
+        # now listening on  http://localhost:8000/mcp
     else:
-        # Default to stdio mode
+        # desktop-friendly stdio transport
         mcp.run(transport="stdio")
