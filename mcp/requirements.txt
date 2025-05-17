@@ -3,6 +3,7 @@ uvicorn==0.34.2
 anthropic==0.51.0
 scikit-learn==1.6.1
 numpy==2.2.5
-transformers==4.51.3
+transformers[torch]==4.51.3
 datasets==3.6.0
 pandas==2.2.3
+torch==2.7.0
