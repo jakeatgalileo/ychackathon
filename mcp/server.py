@@ -71,23 +71,28 @@ def get_profile_info(a: int, b: int) -> str:
 @mcp.tool()
 def evaluation_model(file_path: str):
     """
-    Processes a CSV file and generates random evaluation scores for each row.
-    This tool serves as an interface to the evaluation_rows function from the evaluation_model module.
+    Processes a CSV file, evaluates each row with random scores, and compares with actual labels.
     
     Args:
         file_path (str): Path to the CSV file to evaluate, relative to the project root
                         or an absolute path.
         
     Returns:
-        list: A list of random integers between 0 and 4, where:
-             - Each integer corresponds to a row in the input CSV
-             - 0 represents the lowest score
-             - 4 represents the highest score
+        dict: A dictionary containing:
+            - 'predictions': List of random scores (0-4) for each row
+            - 'actuals': List of actual labels from the CSV
+            - 'stats': Dictionary with accuracy and distribution metrics
+            - 'summary': Human and LLM-friendly text summary of results
               
     Example:
-        >>> scores = evaluation_model("datasets/samples.csv")
-        >>> print(scores)
-        [2, 4, 1, 3, 0]
+        >>> result = evaluation_model("datasets/samples.csv")
+        >>> print(result['summary'])
+        Evaluation Summary
+        ====================
+        Total reviews processed: 100
+        Model accuracy: 20.0%
+        Average error: 1.73 stars
+        ...
     """
     return evaluate_rows(file_path)
 
