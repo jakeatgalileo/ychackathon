@@ -1,47 +1,67 @@
-import os
-import multiprocessing
+from datasets import load_dataset
+
 import anthropic
-import numpy as np
-import pandas as pd
-from sklearn.model_selection import train_test_split
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, Trainer as HfTrainer, TrainingArguments
-from datasets import load_dataset, Dataset
+import multiprocessing
+import os
+
 
 class Trainer:
-    def __init__(self, train_dataset, valid_dataset, task, metric, target, K):
-        self.train_dataset = train_dataset
-        self.valid_dataset = valid_dataset
+    def __init__(self,
+                 dataset_path: str,
+                 task: str,
+                 metric: str,
+                 target: str,
+                 num_clones: int):
+        self.dataset_path = dataset_path
         self.task = task
         self.metric = metric
         self.target = target
-        self.K = K
+        self.num_clones = num_clones
+        self.client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
-    def load_dataset(self, file_path):
+        self.init_prompt = f"""
+        You are a machine learning research agent operating in python. You have access to the following libraries: scikit-learn, numpy, transformers, datasets, pandas.
+        Here are your task parameters:
+          - Task: {self.task}
+          - Metric: {self.metric}
+          - Target: {self.target}
+          - Dataset examples: {self.get_training_preview()}
+          
+        Please write a python training script that takes a csv dataset path as an argument and trains a machine 
+        learning model to predict the target column {self.target} in those datasets.
+        
+        We will invoke your output with:
+        `exec(your_verbatim_output, {{}}, {{"dataset_path": dataset_path}})`
+        
+        Save the model and results to the results/ directory.
+        """
+
+    def get_training_preview(self):
         # Load the dataset and extract examples
-        examples = []
-        with open(file_path, 'r') as file:
-            for line in file:
-                examples.append(line.strip())
-                if len(examples) >= 5:  # Load a few examples
-                    break
-        return examples
+        assert os.path.exists(self.dataset_path), (f"Load dataset function checked '{self.dataset_path=}' "
+                                                   f"but no such file exists.")
+        dataset = load_dataset('csv', data_files=self.dataset_path)['train'][:2]
+        stringified_train_previews = [str(row['text']) for row in dataset]
+        return stringified_train_previews
 
-    def generate_training_script(self, examples):
+    def generate_training_script(self):
         # Generate a training script using Anthropic sonnet 3.7
-        client = anthropic.Client(os.getenv("ANTHROPIC_API_KEY"))
-        prompt = f"Task: {self.task}\nMetric: {self.metric}\nTarget: {self.target}\nExamples:\n" + "\n".join(examples) + "\n\nYou have access to the following libraries: scikit-learn, numpy, transformers, datasets, pandas."
-        response = client.completions.create(
-            model="sonnet-3.7",
-            prompt=prompt,
-            max_tokens=1000
+        prompt = self.init_prompt
+
+        response = self.client.messages.create(
+            model="claude-3-7-sonnet-latest",
+            max_tokens=1024,
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
         )
-        return response.choices[0].text
+        return response.choices[0].text.strip()
 
     def run_training_script(self, script, retries=3):
         # Run the training script and handle errors
         for attempt in range(retries):
             try:
-                exec(script)
+                exec(script, {}, {"dataset_path": self.dataset_path})
                 return True
             except Exception as e:
                 print(f"Error: {e}")
@@ -50,37 +70,36 @@ class Trainer:
 
     def generate_training_script_with_error(self, script, error):
         # Generate a new training script with the error context
-        client = anthropic.Client(os.getenv("ANTHROPIC_API_KEY"))
-        prompt = f"Script:\n{script}\nError: {error}\nPlease fix the error and continue. You have access to the following libraries: scikit-learn, numpy, transformers, datasets, pandas."
-        response = client.completions.create(
-            model="sonnet-3.7",
-            prompt=prompt,
-            max_tokens=1000
+        error_prompt = f"INSTRUCTIONS:\n{self.init_prompt}\n\nSCRIPT:\n{script}\n\nERROR: {error}\n\nPlease fix the error in the script. Return ONLY the script."
+        response = self.client.messages.create(
+            model="claude-3-7-sonnet-latest",
+            max_tokens=2048,
+            messages=[
+                {"role": "user", "content": error_prompt}
+            ]
         )
-        return response.choices[0].text
+        return response.choices[0].text.strip()
 
     def train(self):
         # Spin off K processes and save trained models
-        examples = self.load_dataset(self.train_dataset)
+        # Save trained models to a local model directory
+        if not os.path.exists("models"):
+            os.makedirs("models")
+
         processes = []
-        for _ in range(self.K):
-            p = multiprocessing.Process(target=self.generate_and_run_script, args=(examples,))
+        for _ in range(self.num_clones):
+            p = multiprocessing.Process(target=self.generate_and_run_script, args=())
             processes.append(p)
             p.start()
 
         for p in processes:
             p.join()
 
-        # Save trained models to a local model directory
-        if not os.path.exists("models"):
-            os.makedirs("models")
-        # Assuming models are saved in the script
-        print("Trained models saved to 'models' directory")
-
-    def generate_and_run_script(self, examples):
-        script = self.generate_training_script(examples)
+    def generate_and_run_script(self):
+        script = self.generate_training_script()
         self.run_training_script(script)
 
+
 if __name__ == "__main__":
-    trainer = Trainer("train_dataset.txt", "valid_dataset.txt", "classification", "accuracy", "label", 5)
+    trainer = Trainer("C:/Users/nickm/develop/mcp-yc25-hackathon/data/dataset.csv", "classification", "accuracy", "label", 5)
     trainer.train()
