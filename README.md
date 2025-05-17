@@ -1,1 +1,7 @@
 # ychackathon
+
+# frontend
+
+
+
+# mcp
