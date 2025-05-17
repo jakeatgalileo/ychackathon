@@ -2,7 +2,7 @@ from mcp.server.fastmcp import FastMCP
 import sys
 from evaluation_model import evaluate_rows
 
-mcp = FastMCP("Demo", version="0.0.1")
+mcp = FastMCP("server", version="0.0.1")
 
 @mcp.tool()
 def add(a: int, b: int) -> int:
@@ -95,3 +95,7 @@ def evaluation_model(file_path: str):
 def calculate_bmi(weight_kg: float, height_m: float) -> float:
     """Calculate BMI given weight in kg and height in meters"""
     return weight_kg / (height_m**2)
+
+if __name__ == "__main__":
+    # Initialize and run the server
+    mcp.run(transport='stdio')
