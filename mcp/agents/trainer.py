@@ -86,7 +86,7 @@ class Trainer:
     def output_directory(self):
         now = datetime.now()
         # Format it as YYYY-MM-DD-HH-MM
-        return f"{self.task}-{now.strftime("%Y-%m-%d-%H-%M")}"
+        return f"{self.task}-{now.strftime('%Y-%m-%d-%H-%M')}"
 
     def generate_training_script(self):
         # Generate a training script using Anthropic sonnet 3.7

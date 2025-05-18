@@ -38,10 +38,10 @@ client = anthropic.Anthropic(
 LATEST_DATASET_FPATH = "../yelp_dirty_data.csv"
 CLEAN_DATASET_PREFIX = "../yelp_clean_data_v"
 
-@mcp.resource(
-    uri="data://dataset",
-    description="Gets the dataset filepath",
-    mime_type="text/plain",
+@mcp.tool(
+    # uri="data://dataset",
+    # description="Gets the dataset filepath",
+    # mime_type="text/plain",
 )
 def get_latest_dataset_filepath() -> str:
     # (maybe) FIXME point to the local path
@@ -133,6 +133,7 @@ def remove_rows_with_null():
     # Save the cleaned DataFrame
     output_path = f"{CLEAN_DATASET_PREFIX}{version}.csv"
     df_clean.to_csv(output_path, index=False)
+    LATEST_DATASET_FPATH = output_path
     logger.info(f"Saved cleaned dataset to {output_path}")
     
     return df_clean
