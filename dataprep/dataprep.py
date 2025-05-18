@@ -137,19 +137,6 @@ def remove_rows_with_null():
     
     return df_clean
 
-
-def test_anthropic():
-    logger.info('sending hello message to claude')
-    message = client.messages.create(
-        model="claude-3-7-sonnet-20250219",
-        max_tokens=1024,
-        messages=[
-            {"role": "user", "content": "Hello, Claude"}
-        ]
-    )
-    logger.info(message.content.text)
-
-
 if __name__ == "__main__":
     # Initialize and run the server
 
