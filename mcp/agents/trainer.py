@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import anthropic
 import multiprocessing
 import os
+import pandas as pd
 import shutil
 import traceback
 
@@ -46,7 +47,8 @@ class Trainer:
                  dataset_path: str,
                  task: str,
                  metric: str,
-                 target: str):
+                 target: str,
+                 be_fast: bool = True):
         self.dataset_path = dataset_path
         self.task = task
         self.metric = metric
@@ -69,13 +71,16 @@ class Trainer:
         `exec(your_verbatim_output, {{}}, {{"dataset_path": dataset_path}})`
         
         Save the model and results to a subfolder in the results/ directory named '{self.expected_output_directory_template}'.
+        {"You only have 10 minutes to train, so set your hyperparameters to be as fast as possible, e.g. 1 epoch, etc." if be_fast else ""}
         """
 
     def get_training_preview(self):
         # Load the dataset and extract examples
         assert os.path.exists(self.dataset_path), (f"Load dataset function checked '{self.dataset_path=}' "
                                                    f"but no such file exists.")
-        stringified_dataset_preview = load_dataset('csv', data_files=self.dataset_path)['train'][:2]['text']
+        stringified_dataset_preview = pd.DataFrame(
+            load_dataset('csv', data_files=self.dataset_path)['train'][:2]
+        ).to_string(index=False, max_colwidth=100)
         return stringified_dataset_preview
 
     def output_directory(self):
@@ -151,8 +156,13 @@ class Trainer:
 
 
 if __name__ == "__main__":
-    generate_and_run_script("C:/Users/nickm/develop/mcp-yc25-hackathon/data/dataset.csv",
+    # generate_and_run_script("C:/Users/nickm/develop/mcp-yc25-hackathon/data/dataset.csv",
+    #                         "classification",
+    #                         "accuracy",
+    #                         "label",
+    #                         1)
+    generate_and_run_script("C:/Users/nickm/develop/mcp-yc25-hackathon/data/logistic_regression_dataset.csv",
                             "classification",
                             "accuracy",
-                            "label",
-                            2)
+                            "target",
+                            1)
